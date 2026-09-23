@@ -71,12 +71,16 @@ class Transaction(Base):
     )
     cleared: Mapped[bool] = mapped_column(Boolean, default=True)
     source: Mapped[str] = mapped_column(String, default="manual")
+    # SimpleFIN's transaction id, for dedup on repeated syncs. Null for manual entries.
+    external_id: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     created_at: Mapped[dt.datetime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[dt.datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
 
     splits: Mapped[list["TransactionSplit"]] = relationship(
         back_populates="transaction", cascade="all, delete-orphan"
     )
+
+    __table_args__ = (UniqueConstraint("account_id", "external_id", name="uq_account_external_id"),)
 
 
 class TransactionSplit(Base):
@@ -117,3 +121,17 @@ class CategoryMovement(Base):
     month: Mapped[dt.date] = mapped_column(Date)
     amount_cents: Mapped[int] = mapped_column(Integer)
     created_at: Mapped[dt.datetime] = mapped_column(DateTime, server_default=func.now())
+
+
+class SimpleFinLink(Base):
+    """Links a local account to a SimpleFIN Bridge account id, so sync knows which
+    remote account feeds which local one and where it left off.
+    """
+
+    __tablename__ = "simplefin_links"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    account_id: Mapped[int] = mapped_column(ForeignKey("accounts.id"), unique=True)
+    simplefin_account_id: Mapped[str] = mapped_column(String)
+    simplefin_org_name: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    last_synced_at: Mapped[Optional[dt.datetime]] = mapped_column(DateTime, nullable=True)
