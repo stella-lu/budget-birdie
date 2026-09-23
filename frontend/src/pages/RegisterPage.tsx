@@ -18,6 +18,7 @@ export function RegisterPage({ accountId, accounts }: { accountId: number; accou
   const [reconcileDate, setReconcileDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [reconcileBalance, setReconcileBalance] = useState("");
   const [reconcileResult, setReconcileResult] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
   const payeeInputRef = useRef<HTMLInputElement>(null);
 
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
@@ -144,6 +145,20 @@ export function RegisterPage({ accountId, accounts }: { accountId: number; accou
 
   const categoryName = (id: number | null) => categories.find((c) => c.id === id)?.name ?? (id ? `#${id}` : "—");
 
+  const filteredTransactions = transactions.filter((t) => {
+    const q = search.trim().toLowerCase();
+    if (!q) return true;
+    const haystack = [
+      t.payee_name ?? "",
+      t.is_transfer ? "transfer" : "",
+      categoryName(t.category_id),
+      (t.amount_cents / 100).toFixed(2),
+    ]
+      .join(" ")
+      .toLowerCase();
+    return haystack.includes(q);
+  });
+
   return (
     <div>
       <h2>{account?.name ?? "Account"}</h2>
@@ -268,6 +283,13 @@ export function RegisterPage({ accountId, accounts }: { accountId: number; accou
         <button type="submit">Add transaction</button>
       </form>
 
+      <input
+        placeholder="Search payee, category, or amount…"
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        className="register-search"
+      />
+
       <table>
         <thead>
           <tr>
@@ -280,7 +302,7 @@ export function RegisterPage({ accountId, accounts }: { accountId: number; accou
           </tr>
         </thead>
         <tbody>
-          {transactions.map((t) => (
+          {filteredTransactions.map((t) => (
             <tr key={t.id}>
               <td>{t.date}</td>
               <td>{t.is_transfer ? "Transfer" : t.payee_name ?? "—"}</td>
@@ -294,6 +316,13 @@ export function RegisterPage({ accountId, accounts }: { accountId: number; accou
               </td>
             </tr>
           ))}
+          {filteredTransactions.length === 0 && (
+            <tr>
+              <td colSpan={6} className="empty">
+                {transactions.length === 0 ? "No transactions yet" : "No transactions match your search"}
+              </td>
+            </tr>
+          )}
         </tbody>
       </table>
     </div>

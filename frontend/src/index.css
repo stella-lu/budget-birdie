@@ -287,6 +287,11 @@ td input {
   white-space: normal;
 }
 
+.register-search {
+  width: 100%;
+  margin-bottom: 12px;
+}
+
 .undo-banner {
   display: flex;
   align-items: center;
