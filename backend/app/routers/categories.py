@@ -2,9 +2,10 @@ from fastapi import APIRouter, Depends
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.budgeting import set_goal
 from app.db import get_db
 from app.models import Category, CategoryGroup
-from app.schemas import CategoryCreate, CategoryGroupCreate, CategoryGroupOut, CategoryOut
+from app.schemas import CategoryCreate, CategoryGroupCreate, CategoryGroupOut, CategoryOut, GoalRequest
 
 router = APIRouter(tags=["categories"])
 
@@ -35,3 +36,8 @@ def create_category(payload: CategoryCreate, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(category)
     return category
+
+
+@router.put("/categories/{category_id}/goal", response_model=CategoryOut)
+def put_goal(category_id: int, payload: GoalRequest, db: Session = Depends(get_db)):
+    return set_goal(db, category_id, payload.goal_type, payload.goal_amount_cents, payload.goal_date)

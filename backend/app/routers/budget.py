@@ -8,6 +8,7 @@ from app.budgeting import (
     assign_money,
     compute_category_activity_cents,
     compute_category_available_cents,
+    compute_goal_status,
     compute_ready_to_assign_cents,
     month_start,
 )
@@ -37,6 +38,11 @@ def get_budget_month(month: date, db: Session = Depends(get_db)):
             ) or 0
             activity = compute_category_activity_cents(db, cat.id, month)
             available = compute_category_available_cents(db, cat.id, month)
+            goal = compute_goal_status(cat, assigned, available, month) or {
+                "goal_type": cat.goal_type,
+                "goal_amount_cents": cat.goal_amount_cents,
+                "goal_date": cat.goal_date,
+            }
             cat_rows.append(
                 CategoryBudgetOut(
                     id=cat.id,
@@ -47,6 +53,7 @@ def get_budget_month(month: date, db: Session = Depends(get_db)):
                     assigned_cents=assigned,
                     activity_cents=activity,
                     available_cents=available,
+                    **goal,
                 )
             )
         group_rows.append(

@@ -49,12 +49,28 @@ class CategoryOut(BaseModel):
     group_id: Optional[int] = None
     is_system: bool
     sort_order: int
+    goal_type: Optional[str] = None
+    goal_amount_cents: Optional[int] = None
+    goal_date: Optional[date] = None
+
+
+GoalType = Literal["target_balance", "target_balance_by_date", "monthly_funding"]
+
+
+class GoalRequest(BaseModel):
+    goal_type: Optional[GoalType] = None
+    goal_amount_cents: Optional[int] = None
+    goal_date: Optional[date] = None
 
 
 class CategoryBudgetOut(CategoryOut):
     assigned_cents: int = 0
     activity_cents: int = 0
     available_cents: int = 0
+    goal_target_cents: Optional[int] = None
+    goal_progress_pct: Optional[float] = None
+    goal_met: Optional[bool] = None
+    goal_needed_this_month_cents: Optional[int] = None
 
 
 class CategoryGroupBudgetOut(BaseModel):
@@ -157,3 +173,15 @@ class LinkAccountRequest(BaseModel):
 class SyncResultOut(BaseModel):
     accounts_synced: int
     transactions_imported: int
+
+
+class SpendingByCategoryOut(BaseModel):
+    category_id: int
+    category_name: str
+    total_cents: int
+
+
+class IncomeVsExpenseOut(BaseModel):
+    month: str
+    income_cents: int
+    expense_cents: int

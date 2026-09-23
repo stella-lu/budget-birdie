@@ -147,6 +147,70 @@ def compute_ready_to_assign_cents(db: Session, as_of_month: date) -> int:
     return rta_income - total_assigned
 
 
+def compute_goal_status(category: Category, assigned_cents: int, available_cents: int, month: date) -> Optional[dict]:
+    """Goal progress for one category in one month. Returns None if the category has
+    no goal. `target_cents` is 'how much should be assigned/available by now';
+    `needed_this_month_cents` is what's still left to assign this month to stay on track.
+    """
+    if not category.goal_type or not category.goal_amount_cents:
+        return None
+
+    goal_amount = category.goal_amount_cents
+
+    if category.goal_type == "monthly_funding":
+        target = goal_amount
+        met = assigned_cents >= target
+        needed = max(0, target - assigned_cents)
+    elif category.goal_type == "target_balance":
+        target = goal_amount
+        met = available_cents >= target
+        needed = max(0, target - available_cents)
+    elif category.goal_type == "target_balance_by_date":
+        target = goal_amount
+        met = available_cents >= target
+        if category.goal_date and category.goal_date > month:
+            months_remaining = (
+                (category.goal_date.year - month.year) * 12 + (category.goal_date.month - month.month) + 1
+            )
+        else:
+            months_remaining = 1
+        needed = max(0, target - available_cents) // months_remaining if not met else 0
+    else:
+        return None
+
+    progress_pct = min(100.0, round((available_cents / target) * 100, 1)) if target > 0 else 0.0
+
+    return {
+        "goal_type": category.goal_type,
+        "goal_amount_cents": goal_amount,
+        "goal_date": category.goal_date,
+        "goal_target_cents": target,
+        "goal_progress_pct": progress_pct,
+        "goal_met": met,
+        "goal_needed_this_month_cents": needed,
+    }
+
+
+def set_goal(
+    db: Session,
+    category_id: int,
+    goal_type: Optional[str],
+    goal_amount_cents: Optional[int],
+    goal_date: Optional[date],
+) -> Category:
+    category = db.get(Category, category_id)
+    if category is None:
+        raise HTTPException(404, "Category not found")
+    if category.is_system:
+        raise HTTPException(400, "Can't set a goal on a system category")
+    category.goal_type = goal_type
+    category.goal_amount_cents = goal_amount_cents
+    category.goal_date = goal_date
+    db.commit()
+    db.refresh(category)
+    return category
+
+
 def _lines_for(category_id: Optional[int], amount_cents: int, splits: Optional[List[Tuple[int, int]]]):
     if splits:
         return list(splits)
