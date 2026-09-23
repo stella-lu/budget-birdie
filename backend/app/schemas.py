@@ -52,6 +52,7 @@ class CategoryOut(BaseModel):
     goal_type: Optional[str] = None
     goal_amount_cents: Optional[int] = None
     goal_date: Optional[date] = None
+    note: Optional[str] = None
 
 
 GoalType = Literal["target_balance", "target_balance_by_date", "monthly_funding"]
@@ -61,6 +62,10 @@ class GoalRequest(BaseModel):
     goal_type: Optional[GoalType] = None
     goal_amount_cents: Optional[int] = None
     goal_date: Optional[date] = None
+
+
+class NoteRequest(BaseModel):
+    note: Optional[str] = None
 
 
 class CategoryBudgetOut(CategoryOut):
@@ -137,6 +142,7 @@ class TransactionOut(BaseModel):
     is_transfer: bool
     transfer_transaction_id: Optional[int] = None
     cleared: bool
+    reconciled: bool = False
     source: str
     splits: List[SplitOut] = []
 
@@ -185,3 +191,15 @@ class IncomeVsExpenseOut(BaseModel):
     month: str
     income_cents: int
     expense_cents: int
+
+
+class ReconcileRequest(BaseModel):
+    as_of: date
+    statement_balance_cents: int
+
+
+class ReconcileResultOut(BaseModel):
+    computed_balance_cents: int
+    statement_balance_cents: int
+    adjustment_cents: int
+    adjustment_transaction_id: Optional[int] = None

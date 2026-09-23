@@ -30,6 +30,7 @@ def spending_by_category(start: Optional[date] = None, end: Optional[date] = Non
             Transaction.budget_amount_cents < 0,
             Transaction.date >= start,
             Transaction.date <= end,
+            Transaction.deleted_at.is_(None),
         )
         .group_by(Category.id)
         .order_by(func.sum(Transaction.budget_amount_cents))
@@ -54,6 +55,7 @@ def income_vs_expense(start: Optional[date] = None, end: Optional[date] = None, 
             Transaction.is_transfer.is_(False),
             Transaction.date >= start,
             Transaction.date <= end,
+            Transaction.deleted_at.is_(None),
         )
         .group_by(month_expr)
         .order_by(month_expr)

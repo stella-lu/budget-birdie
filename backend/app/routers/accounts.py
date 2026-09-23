@@ -2,10 +2,10 @@ from fastapi import APIRouter, Depends
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.budgeting import account_balance_cents, get_or_create_payment_category
+from app.budgeting import account_balance_cents, get_or_create_payment_category, reconcile_account
 from app.db import get_db
 from app.models import Account
-from app.schemas import AccountCreate, AccountOut
+from app.schemas import AccountCreate, AccountOut, ReconcileRequest, ReconcileResultOut
 
 router = APIRouter(prefix="/accounts", tags=["accounts"])
 
@@ -33,3 +33,8 @@ def create_account(payload: AccountCreate, db: Session = Depends(get_db)):
     item = AccountOut.model_validate(account)
     item.balance_cents = 0
     return item
+
+
+@router.post("/{account_id}/reconcile", response_model=ReconcileResultOut)
+def reconcile(account_id: int, payload: ReconcileRequest, db: Session = Depends(get_db)):
+    return reconcile_account(db, account_id, payload.as_of, payload.statement_balance_cents)
