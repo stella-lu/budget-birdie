@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { api } from "../api";
 import { GoalEditor } from "./GoalEditor";
+import { NoteEditor } from "./NoteEditor";
 import { dollarsToCents, formatCents } from "../money";
 import type { BudgetMonth } from "../types";
 
@@ -29,6 +30,19 @@ export function BudgetPage({ month, setMonth }: { month: string; setMonth: (m: s
   };
 
   useEffect(load, [month]);
+
+  // [ / ] step between months, unless the user is typing somewhere.
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement;
+      const typing = ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName);
+      if (typing) return;
+      if (e.key === "[") setMonth(shiftMonth(month, -1));
+      if (e.key === "]") setMonth(shiftMonth(month, 1));
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [month, setMonth]);
 
   const handleAssign = async (categoryId: number, value: string) => {
     try {
@@ -90,6 +104,7 @@ export function BudgetPage({ month, setMonth }: { month: string; setMonth: (m: s
                 <th>Activity</th>
                 <th>Available</th>
                 <th>Goal</th>
+                <th>Note</th>
               </tr>
             </thead>
             <tbody>
@@ -113,11 +128,12 @@ export function BudgetPage({ month, setMonth }: { month: string; setMonth: (m: s
                     {formatCents(cat.available_cents)}
                   </td>
                   <td>{!cat.is_system && <GoalEditor category={cat} onSaved={load} />}</td>
+                  <td>{!cat.is_system && <NoteEditor category={cat} onSaved={load} />}</td>
                 </tr>
               ))}
               {group.categories.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="empty">
+                  <td colSpan={6} className="empty">
                     No categories yet
                   </td>
                 </tr>
