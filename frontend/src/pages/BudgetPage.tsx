@@ -102,6 +102,7 @@ export function BudgetPage({ month, setMonth }: { month: string; setMonth: (m: s
                         type="text"
                         defaultValue={(cat.assigned_cents / 100).toFixed(2)}
                         onBlur={(e) => handleAssign(cat.id, e.target.value)}
+                        onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
                       />
                     )}
                   </td>
@@ -120,14 +121,20 @@ export function BudgetPage({ month, setMonth }: { month: string; setMonth: (m: s
               )}
             </tbody>
           </table>
-          <div className="inline-form">
+          <form
+            className="inline-form"
+            onSubmit={(e) => {
+              e.preventDefault();
+              handleAddCategory(group.id);
+            }}
+          >
             <input
               placeholder="New category…"
               value={newCategoryName[group.id] ?? ""}
               onChange={(e) => setNewCategoryName({ ...newCategoryName, [group.id]: e.target.value })}
             />
-            <button onClick={() => handleAddCategory(group.id)}>+ Add category</button>
-          </div>
+            <button type="submit">+ Add category</button>
+          </form>
         </div>
       ))}
 
