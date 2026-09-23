@@ -5,14 +5,39 @@ See the [design doc](https://claude.ai/code/artifact/ece60242-9d9f-4660-bfb1-2f5
 
 ## Status
 
-- **Phase 0 (core ledger)**: done — accounts, category groups/categories, manual
-  transactions (with splits and transfers), assign/un-assign money, Ready to Assign,
-  and automatic credit-card overspending coverage.
-- **Phase 1 (encryption + backup)**: backup half done (plaintext JSON export +
-  rclone + launchd, see below); encryption is wired up in code but **blocked** on
-  this machine — see "Enabling encryption" below.
-- **Phase 2+ (bank sync, goals, reports, polish)**: in progress — see the
-  [design doc](https://claude.ai/code/artifact/ece60242-9d9f-4660-bfb1-2f5b85ed2dca)'s phased plan for scope.
+All confirmed MVP features are implemented (see the design doc's MVP Feature Scope
+section). Four things are built but need **you** to finish setup — none of them
+can be done on your behalf:
+
+| What | Needs |
+|---|---|
+| Encryption (SQLCipher) | One-time `sudo` command to update Command Line Tools — see "Enabling encryption" |
+| Backup to Google Drive | `rclone config` — browser OAuth to your own Google account |
+| Bank sync (SimpleFIN) | Your own SimpleFIN Bridge setup token, pasted into the Bank Sync tab |
+| Push this repo to GitHub | `gh auth login` — browser login to your own GitHub account (see below) |
+
+Everything else — core ledger, goals, reports, reconcile, notes, undo, keyboard
+shortcuts, the backup *script* itself (just not the Drive upload), and the SimpleFIN
+*client code* (just not a live-tested sync) — is done and tested end-to-end.
+
+### Pushing to GitHub
+
+`gh` is installed at `~/bin/gh` (prebuilt binary, no compiler needed — see the
+rclone note below for why). It's not logged in yet:
+
+```bash
+~/bin/gh auth login
+```
+
+Pick GitHub.com → HTTPS or SSH (you already have SSH keys set up) → login with a
+browser. Once that's done:
+
+```bash
+~/bin/gh repo create budget-birdie --public --source=. --push
+```
+
+(Public, per your call that code can be public — data never leaves `backend/data/`
+and `backend/backups/`, both gitignored.)
 
 ## Running it
 
