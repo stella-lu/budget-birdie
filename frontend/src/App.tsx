@@ -4,10 +4,11 @@ import { currentMonthStr } from "./money";
 import { AccountsPage } from "./pages/AccountsPage";
 import { BudgetPage } from "./pages/BudgetPage";
 import { RegisterPage } from "./pages/RegisterPage";
+import { ReportsPage } from "./pages/ReportsPage";
 import { SyncPage } from "./pages/SyncPage";
 import type { Account } from "./types";
 
-type Tab = "budget" | "accounts" | "register" | "sync";
+type Tab = "budget" | "accounts" | "register" | "sync" | "reports";
 
 export default function App() {
   const [tab, setTab] = useState<Tab>("budget");
@@ -32,6 +33,9 @@ export default function App() {
           </button>
           <button className={tab === "sync" ? "active" : ""} onClick={() => setTab("sync")}>
             Bank Sync
+          </button>
+          <button className={tab === "reports" ? "active" : ""} onClick={() => setTab("reports")}>
+            Reports
           </button>
         </nav>
       </header>
@@ -61,6 +65,7 @@ export default function App() {
           </div>
         )}
         {tab === "sync" && <SyncPage accounts={accounts} />}
+        {tab === "reports" && <ReportsPage />}
       </main>
     </div>
   );
