@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "../api";
+import { GoalEditor } from "./GoalEditor";
 import { dollarsToCents, formatCents } from "../money";
 import type { BudgetMonth } from "../types";
 
@@ -88,6 +89,7 @@ export function BudgetPage({ month, setMonth }: { month: string; setMonth: (m: s
                 <th>Assigned</th>
                 <th>Activity</th>
                 <th>Available</th>
+                <th>Goal</th>
               </tr>
             </thead>
             <tbody>
@@ -110,11 +112,12 @@ export function BudgetPage({ month, setMonth }: { month: string; setMonth: (m: s
                   <td className={cat.available_cents < 0 ? "negative" : "positive"}>
                     {formatCents(cat.available_cents)}
                   </td>
+                  <td>{!cat.is_system && <GoalEditor category={cat} onSaved={load} />}</td>
                 </tr>
               ))}
               {group.categories.length === 0 && (
                 <tr>
-                  <td colSpan={4} className="empty">
+                  <td colSpan={5} className="empty">
                     No categories yet
                   </td>
                 </tr>
