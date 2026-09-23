@@ -130,3 +130,30 @@ class PayeeOut(BaseModel):
 
     id: int
     name: str
+
+
+class SimpleFinConnectRequest(BaseModel):
+    setup_token: str
+
+
+class SimpleFinStatusOut(BaseModel):
+    connected: bool
+
+
+class LinkableAccountOut(BaseModel):
+    simplefin_account_id: str
+    name: str
+    org: Optional[str] = None
+    balance: Optional[str] = None
+    linked_account_id: Optional[int] = None
+
+
+class LinkAccountRequest(BaseModel):
+    simplefin_account_id: str
+    simplefin_org_name: Optional[str] = None
+    account_id: int
+
+
+class SyncResultOut(BaseModel):
+    accounts_synced: int
+    transactions_imported: int

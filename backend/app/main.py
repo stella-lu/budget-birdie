@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.budgeting import get_or_create_rta_category
 from app.db import Base, SessionLocal, engine
-from app.routers import accounts, budget, categories, payees, transactions
+from app.routers import accounts, budget, categories, payees, sync, transactions
 
 app = FastAPI(title="Budget Birdie API")
 
@@ -19,6 +19,7 @@ app.include_router(categories.router)
 app.include_router(payees.router)
 app.include_router(transactions.router)
 app.include_router(budget.router)
+app.include_router(sync.router)
 
 
 @app.on_event("startup")
