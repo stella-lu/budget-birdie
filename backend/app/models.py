@@ -46,6 +46,10 @@ class Category(Base):
     goal_amount_cents: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     goal_date: Mapped[Optional[dt.date]] = mapped_column(Date, nullable=True)
 
+    # Persistent note on the envelope itself — unlike a transaction memo, this carries
+    # across months rather than being tied to a single entry.
+    note: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+
     group: Mapped[Optional["CategoryGroup"]] = relationship(back_populates="categories")
 
 
@@ -75,9 +79,13 @@ class Transaction(Base):
         ForeignKey("transactions.id"), nullable=True
     )
     cleared: Mapped[bool] = mapped_column(Boolean, default=True)
+    reconciled: Mapped[bool] = mapped_column(Boolean, default=False)
     source: Mapped[str] = mapped_column(String, default="manual")
     # SimpleFIN's transaction id, for dedup on repeated syncs. Null for manual entries.
     external_id: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    # Soft-delete: excluded from every balance/activity query but kept around so
+    # "undo delete" can restore it without re-deriving anything.
+    deleted_at: Mapped[Optional[dt.datetime]] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[dt.datetime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[dt.datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
 
