@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime
 from typing import List, Optional, Tuple
 
 from fastapi import HTTPException
@@ -77,12 +77,17 @@ def _activity_cents(db: Session, category_id: int, before: date) -> int:
         select(func.coalesce(func.sum(Transaction.budget_amount_cents), 0)).where(
             Transaction.category_id == category_id,
             Transaction.date < before,
+            Transaction.deleted_at.is_(None),
         )
     )
     split = db.scalar(
         select(func.coalesce(func.sum(TransactionSplit.amount_cents), 0))
         .join(Transaction, Transaction.id == TransactionSplit.transaction_id)
-        .where(TransactionSplit.category_id == category_id, Transaction.date < before)
+        .where(
+            TransactionSplit.category_id == category_id,
+            Transaction.date < before,
+            Transaction.deleted_at.is_(None),
+        )
     )
     return direct + split
 
@@ -94,6 +99,7 @@ def compute_category_activity_cents(db: Session, category_id: int, month: date) 
             Transaction.category_id == category_id,
             Transaction.date >= month,
             Transaction.date < _next_month(month),
+            Transaction.deleted_at.is_(None),
         )
     )
     split = db.scalar(
@@ -103,6 +109,7 @@ def compute_category_activity_cents(db: Session, category_id: int, month: date) 
             TransactionSplit.category_id == category_id,
             Transaction.date >= month,
             Transaction.date < _next_month(month),
+            Transaction.deleted_at.is_(None),
         )
     )
     return direct + split
@@ -403,18 +410,68 @@ def update_transaction(db: Session, transaction_id: int, payload: TransactionUpd
     return txn
 
 
-def delete_transaction(db: Session, transaction_id: int):
+def delete_transaction(db: Session, transaction_id: int) -> List[int]:
+    """Soft-deletes (excluded from all balance/activity queries, row kept for undo).
+    Returns the ids of every transaction affected (the transfer pair, if any) so the
+    caller can offer to undo all of them together.
+    """
     txn = db.get(Transaction, transaction_id)
     if txn is None:
         raise HTTPException(404, "Transaction not found")
+    now = datetime.utcnow()
     _clear_movements(db, txn.id)
+    txn.deleted_at = now
+    affected = [txn.id]
     if txn.transfer_transaction_id:
         pair = db.get(Transaction, txn.transfer_transaction_id)
         if pair is not None:
             _clear_movements(db, pair.id)
-            db.delete(pair)
-    db.delete(txn)
+            pair.deleted_at = now
+            affected.append(pair.id)
     db.commit()
+    return affected
+
+
+def undo_delete_transaction(db: Session, transaction_id: int) -> List[Transaction]:
+    txn = db.get(Transaction, transaction_id)
+    if txn is None or txn.deleted_at is None:
+        raise HTTPException(404, "No deleted transaction with that id")
+
+    ids = [txn.id] + ([txn.transfer_transaction_id] if txn.transfer_transaction_id else [])
+    restored = []
+    for tid in ids:
+        t = db.get(Transaction, tid)
+        if t is None:
+            continue
+        t.deleted_at = None
+        db.flush()
+        restored.append(t)
+
+        if not t.is_transfer:
+            account = db.get(Account, t.account_id)
+            if account.type == "credit":
+                splits = db.scalars(select(TransactionSplit).where(TransactionSplit.transaction_id == t.id)).all()
+                split_tuples = [(s.category_id, s.amount_cents) for s in splits] if splits else None
+                lines = _lines_for(t.category_id, t.amount_cents, split_tuples)
+                month = month_start(t.date)
+                # Recompute "available before this purchase" the same way create_transaction
+                # would — this transaction's own effect is already excluded since it's still
+                # marked deleted_at at the moment of this calc... but we just cleared it above,
+                # so exclude it explicitly by subtracting its own contribution isn't needed:
+                # simplest correct approach is to temporarily re-flag it, compute, then restore.
+                t.deleted_at = datetime.utcnow()
+                db.flush()
+                pre_availables = {
+                    cid: compute_category_available_cents(db, cid, month) for cid, amt in lines if cid and amt < 0
+                }
+                t.deleted_at = None
+                db.flush()
+                apply_credit_card_movements(db, t, account, lines, pre_availables)
+
+    db.commit()
+    for t in restored:
+        db.refresh(t)
+    return restored
 
 
 def assign_money(db: Session, category_id: int, month: date, assigned_cents: int) -> MonthlyAllocation:
@@ -439,7 +496,53 @@ def assign_money(db: Session, category_id: int, month: date, assigned_cents: int
     return row
 
 
-def account_balance_cents(db: Session, account_id: int) -> int:
-    return db.scalar(
-        select(func.coalesce(func.sum(Transaction.amount_cents), 0)).where(Transaction.account_id == account_id)
-    )
+def account_balance_cents(db: Session, account_id: int, as_of: Optional[date] = None) -> int:
+    conditions = [Transaction.account_id == account_id, Transaction.deleted_at.is_(None)]
+    if as_of is not None:
+        conditions.append(Transaction.date <= as_of)
+    return db.scalar(select(func.coalesce(func.sum(Transaction.amount_cents), 0)).where(*conditions))
+
+
+def reconcile_account(db: Session, account_id: int, as_of: date, statement_balance_cents: int) -> dict:
+    """Compares the account's computed balance (as of a date) against the real bank
+    statement balance. If they differ, records the gap as an uncategorized adjustment
+    transaction (so the account balance and reality line back up — what caused the gap
+    is on the user to figure out, same as YNAB) and marks everything through that date
+    reconciled so this reconciliation doesn't have to be redone.
+    """
+    account = db.get(Account, account_id)
+    if account is None:
+        raise HTTPException(404, "Account not found")
+
+    computed = account_balance_cents(db, account_id, as_of=as_of)
+    diff = statement_balance_cents - computed
+
+    adjustment = None
+    if diff != 0:
+        adjustment = Transaction(
+            account_id=account_id,
+            date=as_of,
+            amount_cents=diff,
+            budget_amount_cents=diff,
+            category_id=None,
+            is_transfer=False,
+            cleared=True,
+            reconciled=True,
+            source="reconcile",
+        )
+        db.add(adjustment)
+        db.flush()
+
+    db.query(Transaction).filter(
+        Transaction.account_id == account_id,
+        Transaction.date <= as_of,
+        Transaction.deleted_at.is_(None),
+    ).update({"reconciled": True})
+    db.commit()
+
+    return {
+        "computed_balance_cents": computed,
+        "statement_balance_cents": statement_balance_cents,
+        "adjustment_cents": diff,
+        "adjustment_transaction_id": adjustment.id if adjustment else None,
+    }
