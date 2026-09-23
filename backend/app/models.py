@@ -41,6 +41,11 @@ class Category(Base):
     is_system: Mapped[bool] = mapped_column(Boolean, default=False)
     sort_order: Mapped[int] = mapped_column(Integer, default=0)
 
+    # goal_type: "target_balance" | "target_balance_by_date" | "monthly_funding" | null (no goal)
+    goal_type: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    goal_amount_cents: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    goal_date: Mapped[Optional[dt.date]] = mapped_column(Date, nullable=True)
+
     group: Mapped[Optional["CategoryGroup"]] = relationship(back_populates="categories")
 
 
