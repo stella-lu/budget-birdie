@@ -179,6 +179,7 @@ class LinkAccountRequest(BaseModel):
 class SyncResultOut(BaseModel):
     accounts_synced: int
     transactions_imported: int
+    transactions_matched: int = 0
 
 
 class SpendingByCategoryOut(BaseModel):

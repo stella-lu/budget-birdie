@@ -74,17 +74,50 @@ def _cents(amount_str: str) -> int:
     return int((Decimal(amount_str) * 100).to_integral_value())
 
 
-def _import_transaction(db: Session, account: Account, remote_txn: dict) -> Optional[Transaction]:
+def _find_manual_match(db: Session, account: Account, txn_date: date, amount_cents: int) -> Optional[Transaction]:
+    """A manually-entered transaction the user probably already typed in for this same
+    real-world purchase (e.g. wrote a check into the register before the sync caught up).
+    Matched on account + exact amount + date within 3 days, and only ever claims a
+    manual entry once (external_id still null).
+    """
+    window_start = txn_date - timedelta(days=3)
+    window_end = txn_date + timedelta(days=3)
+    return db.scalar(
+        select(Transaction)
+        .where(
+            Transaction.account_id == account.id,
+            Transaction.source == "manual",
+            Transaction.external_id.is_(None),
+            Transaction.amount_cents == amount_cents,
+            Transaction.date >= window_start,
+            Transaction.date <= window_end,
+            Transaction.deleted_at.is_(None),
+        )
+        .order_by(Transaction.date)
+    )
+
+
+def _import_transaction(db: Session, account: Account, remote_txn: dict) -> tuple:
+    """Returns (status, transaction) where status is 'skipped' (already synced before),
+    'matched' (claimed an existing manual entry instead of creating a duplicate), or
+    'imported' (a brand new transaction)."""
     external_id = remote_txn["id"]
     existing = db.scalar(
         select(Transaction).where(Transaction.account_id == account.id, Transaction.external_id == external_id)
     )
     if existing:
-        return None  # already imported on a prior sync
+        return "skipped", None  # already imported on a prior sync
 
     txn_date = datetime.fromtimestamp(remote_txn["posted"], tz=timezone.utc).date()
     amount_cents = _cents(remote_txn["amount"])
     payee_name = remote_txn.get("payee") or remote_txn.get("description") or "Unknown"
+
+    manual_match = _find_manual_match(db, account, txn_date, amount_cents)
+    if manual_match:
+        manual_match.external_id = external_id
+        manual_match.cleared = True
+        db.commit()
+        return "matched", manual_match
 
     category_id = None
     if amount_cents > 0:
@@ -113,13 +146,13 @@ def _import_transaction(db: Session, account: Account, remote_txn: dict) -> Opti
     if account.type == "credit" and category_id:
         apply_credit_card_movements(db, txn, account, [(category_id, amount_cents)], pre_availables)
 
-    return txn
+    return "imported", txn
 
 
 def sync_all(db: Session) -> dict:
     links = db.scalars(select(SimpleFinLink)).all()
     if not links:
-        return {"accounts_synced": 0, "transactions_imported": 0}
+        return {"accounts_synced": 0, "transactions_imported": 0, "transactions_matched": 0}
 
     oldest_sync = min((link.last_synced_at for link in links if link.last_synced_at), default=None)
     start_date = (
@@ -128,6 +161,7 @@ def sync_all(db: Session) -> dict:
     remote_accounts = {a["id"]: a for a in fetch_remote_accounts(start_date=start_date)}
 
     imported = 0
+    matched = 0
     synced = 0
     for link in links:
         remote = remote_accounts.get(link.simplefin_account_id)
@@ -135,14 +169,16 @@ def sync_all(db: Session) -> dict:
             continue
         account = db.get(Account, link.account_id)
         for remote_txn in remote.get("transactions", []):
-            txn = _import_transaction(db, account, remote_txn)
-            if txn:
+            status, _ = _import_transaction(db, account, remote_txn)
+            if status == "imported":
                 imported += 1
+            elif status == "matched":
+                matched += 1
         link.last_synced_at = datetime.now(timezone.utc)
         synced += 1
         db.commit()
 
-    return {"accounts_synced": synced, "transactions_imported": imported}
+    return {"accounts_synced": synced, "transactions_imported": imported, "transactions_matched": matched}
 
 
 def list_linkable_accounts(db: Session) -> List[dict]:

@@ -50,6 +50,7 @@ def get_budget_month(month: date, db: Session = Depends(get_db)):
                     group_id=cat.group_id,
                     is_system=cat.is_system,
                     sort_order=cat.sort_order,
+                    note=cat.note,
                     assigned_cents=assigned,
                     activity_cents=activity,
                     available_cents=available,
