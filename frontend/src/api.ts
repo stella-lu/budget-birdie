@@ -63,7 +63,8 @@ export const api = {
     splits?: Split[];
     transfer_account_id?: number;
   }) => request<Transaction>("/transactions", { method: "POST", body: JSON.stringify(payload) }),
-  deleteTransaction: (id: number) => request<void>(`/transactions/${id}`, { method: "DELETE" }),
+  deleteTransaction: (id: number) => request<{ deleted_ids: number[] }>(`/transactions/${id}`, { method: "DELETE" }),
+  undoDeleteTransaction: (id: number) => request<Transaction>(`/transactions/${id}/undo-delete`, { method: "POST" }),
 
   syncStatus: () => request<SimpleFinStatus>("/sync/status"),
   syncConnect: (setup_token: string) =>
@@ -80,6 +81,19 @@ export const api = {
     request<Category>(`/categories/${categoryId}/goal`, {
       method: "PUT",
       body: JSON.stringify({ goal_type, goal_amount_cents, goal_date }),
+    }),
+  setNote: (categoryId: number, note: string | null) =>
+    request<Category>(`/categories/${categoryId}/note`, { method: "PUT", body: JSON.stringify({ note }) }),
+
+  reconcileAccount: (accountId: number, as_of: string, statement_balance_cents: number) =>
+    request<{
+      computed_balance_cents: number;
+      statement_balance_cents: number;
+      adjustment_cents: number;
+      adjustment_transaction_id: number | null;
+    }>(`/accounts/${accountId}/reconcile`, {
+      method: "POST",
+      body: JSON.stringify({ as_of, statement_balance_cents }),
     }),
 
   spendingByCategory: (start?: string, end?: string) =>

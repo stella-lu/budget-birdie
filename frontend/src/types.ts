@@ -26,6 +26,7 @@ export interface Category {
   goal_type: GoalType | null;
   goal_amount_cents: number | null;
   goal_date: string | null;
+  note: string | null;
 }
 
 export interface CategoryBudget extends Category {
@@ -68,6 +69,7 @@ export interface Transaction {
   is_transfer: boolean;
   transfer_transaction_id: number | null;
   cleared: boolean;
+  reconciled: boolean;
   source: string;
   splits: Split[];
 }
