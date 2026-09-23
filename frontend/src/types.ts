@@ -94,6 +94,7 @@ export interface LinkableAccount {
 export interface SyncResult {
   accounts_synced: number;
   transactions_imported: number;
+  transactions_matched: number;
 }
 
 export interface SpendingByCategory {

@@ -56,7 +56,8 @@ export function SyncPage({ accounts }: { accounts: Account[] }) {
     try {
       const result = await api.syncRun();
       setLastResult(
-        `Synced ${result.accounts_synced} account(s), imported ${result.transactions_imported} new transaction(s).`
+        `Synced ${result.accounts_synced} account(s): ${result.transactions_imported} new, ` +
+          `${result.transactions_matched} matched to existing entries.`
       );
       loadLinkable();
     } catch (err) {
