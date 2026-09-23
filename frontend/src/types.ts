@@ -15,18 +15,27 @@ export interface CategoryGroup {
   sort_order: number;
 }
 
+export type GoalType = "target_balance" | "target_balance_by_date" | "monthly_funding";
+
 export interface Category {
   id: number;
   name: string;
   group_id: number | null;
   is_system: boolean;
   sort_order: number;
+  goal_type: GoalType | null;
+  goal_amount_cents: number | null;
+  goal_date: string | null;
 }
 
 export interface CategoryBudget extends Category {
   assigned_cents: number;
   activity_cents: number;
   available_cents: number;
+  goal_target_cents: number | null;
+  goal_progress_pct: number | null;
+  goal_met: boolean | null;
+  goal_needed_this_month_cents: number | null;
 }
 
 export interface CategoryGroupBudget {
@@ -83,4 +92,16 @@ export interface LinkableAccount {
 export interface SyncResult {
   accounts_synced: number;
   transactions_imported: number;
+}
+
+export interface SpendingByCategory {
+  category_id: number;
+  category_name: string;
+  total_cents: number;
+}
+
+export interface IncomeVsExpense {
+  month: string;
+  income_cents: number;
+  expense_cents: number;
 }

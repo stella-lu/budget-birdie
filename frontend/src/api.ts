@@ -4,9 +4,12 @@ import type {
   BudgetMonth,
   Category,
   CategoryGroup,
+  GoalType,
+  IncomeVsExpense,
   LinkableAccount,
   Payee,
   SimpleFinStatus,
+  SpendingByCategory,
   Split,
   SyncResult,
   Transaction,
@@ -72,4 +75,21 @@ export const api = {
       body: JSON.stringify({ simplefin_account_id, account_id, simplefin_org_name }),
     }),
   syncRun: () => request<SyncResult>("/sync/run", { method: "POST" }),
+
+  setGoal: (categoryId: number, goal_type: GoalType | null, goal_amount_cents: number | null, goal_date: string | null) =>
+    request<Category>(`/categories/${categoryId}/goal`, {
+      method: "PUT",
+      body: JSON.stringify({ goal_type, goal_amount_cents, goal_date }),
+    }),
+
+  spendingByCategory: (start?: string, end?: string) =>
+    request<SpendingByCategory[]>(`/reports/spending-by-category${qs({ start, end })}`),
+  incomeVsExpense: (start?: string, end?: string) =>
+    request<IncomeVsExpense[]>(`/reports/income-vs-expense${qs({ start, end })}`),
 };
+
+function qs(params: Record<string, string | undefined>): string {
+  const entries = Object.entries(params).filter(([, v]) => v);
+  if (entries.length === 0) return "";
+  return "?" + new URLSearchParams(entries as [string, string][]).toString();
+}
