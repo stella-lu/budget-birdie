@@ -155,7 +155,7 @@ def _lines_for(category_id: Optional[int], amount_cents: int, splits: Optional[L
     return []
 
 
-def _apply_credit_card_movements(
+def apply_credit_card_movements(
     db: Session, txn: Transaction, account: Account, lines: List[Tuple[int, int]], pre_availables: dict
 ):
     """Redirects available dollars from spending categories into the card's Payment
@@ -238,7 +238,7 @@ def create_transaction(db: Session, payload: TransactionCreate) -> Transaction:
         db.flush()
 
     if account.type == "credit":
-        _apply_credit_card_movements(db, txn, account, lines, pre_availables)
+        apply_credit_card_movements(db, txn, account, lines, pre_availables)
 
     db.commit()
     db.refresh(txn)
@@ -253,7 +253,7 @@ def _create_transfer(db: Session, payload: TransactionCreate, from_account: Acco
         raise HTTPException(422, "amount_cents is required for a transfer")
 
     # Paying down a credit account is categorized to that card's Payment category —
-    # it draws the reserve built up by _apply_credit_card_movements back down, so its
+    # it draws the reserve built up by apply_credit_card_movements back down, so its
     # budget-facing sign is the opposite of its account-ledger sign (see Transaction
     # .budget_amount_cents). Transfers out of a credit account (cash advances) and
     # transfers between two cash-basis accounts stay categoryless — a known gap.
@@ -332,7 +332,7 @@ def update_transaction(db: Session, transaction_id: int, payload: TransactionUpd
         db.flush()
 
     if account.type == "credit":
-        _apply_credit_card_movements(db, txn, account, lines, pre_availables)
+        apply_credit_card_movements(db, txn, account, lines, pre_availables)
 
     db.commit()
     db.refresh(txn)
