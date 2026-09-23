@@ -67,3 +67,20 @@ export interface Payee {
   id: number;
   name: string;
 }
+
+export interface SimpleFinStatus {
+  connected: boolean;
+}
+
+export interface LinkableAccount {
+  simplefin_account_id: string;
+  name: string;
+  org: string | null;
+  balance: string | null;
+  linked_account_id: number | null;
+}
+
+export interface SyncResult {
+  accounts_synced: number;
+  transactions_imported: number;
+}

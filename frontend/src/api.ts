@@ -4,8 +4,11 @@ import type {
   BudgetMonth,
   Category,
   CategoryGroup,
+  LinkableAccount,
   Payee,
+  SimpleFinStatus,
   Split,
+  SyncResult,
   Transaction,
 } from "./types";
 
@@ -58,4 +61,15 @@ export const api = {
     transfer_account_id?: number;
   }) => request<Transaction>("/transactions", { method: "POST", body: JSON.stringify(payload) }),
   deleteTransaction: (id: number) => request<void>(`/transactions/${id}`, { method: "DELETE" }),
+
+  syncStatus: () => request<SimpleFinStatus>("/sync/status"),
+  syncConnect: (setup_token: string) =>
+    request<SimpleFinStatus>("/sync/connect", { method: "POST", body: JSON.stringify({ setup_token }) }),
+  syncLinkableAccounts: () => request<LinkableAccount[]>("/sync/simplefin-accounts"),
+  syncLinkAccount: (simplefin_account_id: string, account_id: number, simplefin_org_name?: string | null) =>
+    request("/sync/link", {
+      method: "POST",
+      body: JSON.stringify({ simplefin_account_id, account_id, simplefin_org_name }),
+    }),
+  syncRun: () => request<SyncResult>("/sync/run", { method: "POST" }),
 };
