@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api } from "../api";
 import { dollarsToCents, formatCents } from "../money";
 import type { Account, Category, Transaction } from "../types";
@@ -13,6 +13,12 @@ export function RegisterPage({ accountId, accounts }: { accountId: number; accou
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [undoTarget, setUndoTarget] = useState<number | null>(null);
+  const [reconciling, setReconciling] = useState(false);
+  const [reconcileDate, setReconcileDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [reconcileBalance, setReconcileBalance] = useState("");
+  const [reconcileResult, setReconcileResult] = useState<string | null>(null);
+  const payeeInputRef = useRef<HTMLInputElement>(null);
 
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [payee, setPayee] = useState("");
@@ -33,6 +39,20 @@ export function RegisterPage({ accountId, accounts }: { accountId: number; accou
   };
 
   useEffect(load, [accountId]);
+
+  // "n" jumps to the payee field to start a new transaction, unless already typing somewhere.
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement;
+      const typing = ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName);
+      if (!typing && e.key === "n") {
+        e.preventDefault();
+        payeeInputRef.current?.focus();
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, []);
 
   const resetForm = () => {
     setPayee("");
@@ -93,7 +113,33 @@ export function RegisterPage({ accountId, accounts }: { accountId: number; accou
 
   const handleDelete = async (id: number) => {
     await api.deleteTransaction(id);
+    setUndoTarget(id);
     load();
+  };
+
+  const handleUndo = async () => {
+    if (undoTarget === null) return;
+    await api.undoDeleteTransaction(undoTarget);
+    setUndoTarget(null);
+    load();
+  };
+
+  const handleReconcile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!reconcileBalance) return;
+    try {
+      const result = await api.reconcileAccount(accountId, reconcileDate, dollarsToCents(reconcileBalance));
+      setReconcileResult(
+        result.adjustment_cents === 0
+          ? "Already matched — no adjustment needed."
+          : `Added a ${formatCents(result.adjustment_cents)} adjustment to match your statement.`
+      );
+      setReconciling(false);
+      setReconcileBalance("");
+      load();
+    } catch (err) {
+      setError(String(err));
+    }
   };
 
   const categoryName = (id: number | null) => categories.find((c) => c.id === id)?.name ?? (id ? `#${id}` : "—");
@@ -103,10 +149,39 @@ export function RegisterPage({ accountId, accounts }: { accountId: number; accou
       <h2>{account?.name ?? "Account"}</h2>
       {error && <p className="error">{error}</p>}
 
+      {undoTarget !== null && (
+        <div className="undo-banner">
+          <span>Transaction deleted.</span>
+          <button type="button" onClick={handleUndo}>
+            Undo
+          </button>
+        </div>
+      )}
+
+      <div className="inline-form">
+        <button type="button" onClick={() => setReconciling(!reconciling)}>
+          {reconciling ? "Cancel reconcile" : "Reconcile"}
+        </button>
+        {reconcileResult && <span>{reconcileResult}</span>}
+      </div>
+
+      {reconciling && (
+        <form onSubmit={handleReconcile} className="register-form">
+          <label>
+            As of <input type="date" value={reconcileDate} onChange={(e) => setReconcileDate(e.target.value)} />
+          </label>
+          <label>
+            Statement balance{" "}
+            <input placeholder="0.00" value={reconcileBalance} onChange={(e) => setReconcileBalance(e.target.value)} />
+          </label>
+          <button type="submit">Reconcile</button>
+        </form>
+      )}
+
       <form onSubmit={handleSubmit} className="register-form">
         <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
         {!isTransfer && (
-          <input placeholder="Payee" value={payee} onChange={(e) => setPayee(e.target.value)} />
+          <input placeholder="Payee (press 'n' to jump here)" value={payee} onChange={(e) => setPayee(e.target.value)} ref={payeeInputRef} />
         )}
 
         <label>
@@ -200,6 +275,7 @@ export function RegisterPage({ accountId, accounts }: { accountId: number; accou
             <th>Payee</th>
             <th>Category</th>
             <th>Amount</th>
+            <th>R</th>
             <th></th>
           </tr>
         </thead>
@@ -210,6 +286,9 @@ export function RegisterPage({ accountId, accounts }: { accountId: number; accou
               <td>{t.is_transfer ? "Transfer" : t.payee_name ?? "—"}</td>
               <td>{t.splits.length > 0 ? "Split" : categoryName(t.category_id)}</td>
               <td className={t.amount_cents < 0 ? "negative" : "positive"}>{formatCents(t.amount_cents)}</td>
+              <td className="positive" title={t.reconciled ? "Reconciled" : ""}>
+                {t.reconciled ? "✓" : ""}
+              </td>
               <td>
                 <button onClick={() => handleDelete(t.id)}>Delete</button>
               </td>
