@@ -6,6 +6,7 @@ backend/**/__pycache__/
 
 # Data (never commit real financial data)
 backend/data/
+backend/backups/
 *.db
 *.db-journal
 
