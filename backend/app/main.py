@@ -2,7 +2,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.budgeting import get_or_create_rta_category
-from app.db import Base, SessionLocal, engine
+from app.db import SessionLocal
+from app.migrate import upgrade_to_head
 from app.routers import accounts, budget, categories, payees, reports, sync, transactions
 
 app = FastAPI(title="Budget Birdie API")
@@ -25,7 +26,7 @@ app.include_router(reports.router)
 
 @app.on_event("startup")
 def on_startup():
-    Base.metadata.create_all(bind=engine)
+    upgrade_to_head()
     db = SessionLocal()
     try:
         get_or_create_rta_category(db)
