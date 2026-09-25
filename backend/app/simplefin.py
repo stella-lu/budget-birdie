@@ -1,7 +1,7 @@
 """SimpleFIN Bridge client — https://www.simplefin.org/protocol.html
 
 Setup is a one-time flow: the user pastes a "setup token" (obtained from their
-SimpleFIN Bridge account after linking BoA/Chase/Wealthfront) which we exchange
+SimpleFIN Bridge account after linking your banks) which we exchange
 for a permanent access URL. That URL embeds HTTP Basic Auth credentials, so it's
 stored in the macOS Keychain (see app.keychain), never in the database or a file.
 """

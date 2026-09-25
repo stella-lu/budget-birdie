@@ -78,7 +78,7 @@ export function SyncPage({ accounts }: { accounts: Account[] }) {
         <div className="category-group">
           <p>
             Connect to SimpleFIN Bridge with a setup token (from your SimpleFIN Bridge account, after
-            you've linked BoA / Chase / Wealthfront there). Setup tokens are single-use.
+            you've linked your banks there). Setup tokens are single-use.
           </p>
           <form onSubmit={handleConnect} className="inline-form">
             <input

@@ -20,3 +20,6 @@ frontend/dist/
 # Editors
 .vscode/
 .idea/
+
+# Machine-specific dev config (contains local absolute paths)
+.claude/
